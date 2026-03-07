@@ -40,7 +40,7 @@
 
 		<figure>
 			<img src="maxplanck.png" alt="Teapot" style="width:50%"/>
-			<figcaption>Max Planck in MESHES</figcaption>
+			<figcaption>Max Planck in MESH</figcaption>
 		</figure>
 
 		<!--
@@ -168,10 +168,20 @@
 		<br><br>
 		Below is an illustration of the teapot after some edge flips. 
 
-		<figure>
-			<img src="teapot_task4.png" alt="Teapot" style="width:50%"/>
-			<figcaption>teapot with some edges flipped</figcaption>
-		</figure>
+		<div style="display: flex; flex-direction: column; align-items: center;">
+			<table style="width: 100%; text-align: center; border-collapse: collapse;">
+			  <tr>
+				<td style="text-align: center;">
+				  <img src="teapot_task4_before.png" width="400px"/>
+				  <figcaption>Teapot mesh before edge flips </figcaption>
+				</td>
+				<td style="text-align: center;">
+				  <img src="teapot_task4.png" width="400px"/>
+				  <figcaption>Teapot mesh after edge flips </figcaption>
+				</td>
+			  </tr>
+			</table>
+		</div>
 
 		<h3>Part 5: Edge split</h3>
 		<b> Implementation: </b> The overall strategy for implementing <i>edge split</i> is similar to that of <i>edge flip</i>. I first identified all the relevant mesh elements around the target edge, including the adjacent halfedges, vertices, edges, and faces. 
@@ -188,11 +198,15 @@
 			<table style="width: 100%; text-align: center; border-collapse: collapse;">
 			  <tr>
 				<td style="text-align: center;">
-				  <img src="part5/teapot_task5_1.png" width="400px"/>
+					<img src="teapot_task4_before.png" width="350px"/>
+					<figcaption>Teapot before edge splits </figcaption>
+				</td>
+				<td style="text-align: center;">
+				  <img src="part5/teapot_task5_1.png" width="350px"/>
 				  <figcaption>Teapot with edge splits only </figcaption>
 				</td>
 				<td style="text-align: center;">
-				  <img src="part5/teapot_task5_2.png" width="400px"/>
+				  <img src="part5/teapot_task5_2.png" width="350px"/>
 				  <figcaption>Teapot with both edge splits and edge flips</figcaption>
 				</td>
 			  </tr>
