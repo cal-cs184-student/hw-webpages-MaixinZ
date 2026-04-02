@@ -27,17 +27,18 @@
 	</head>
 	<body>
 		<div class="container">
-		<h1>CS184/284A Spring 2025 Homework 3 Write-Up</h1>
-		<div style="text-align: center;">Names: </div>
+		<h1>CS184/284A Spring 2026 Homework 3 Write-Up</h1>
+		<div style="text-align: center;">Name: Maixin Zhang</div>
 
 		<br>
 
-		Link to webpage: (TODO) <a href="https://cs184.eecs.berkeley.edu/sp25">cs184.eecs.berkeley.edu/sp25</a>
-		Link to GitHub repository: (TODO) <a href="https://cs184.eecs.berkeley.edu/sp25">cs184.eecs.berkeley.edu/sp25</a>
+		Link to webpage: <a href="https://cal-cs184-student.github.io/hw-webpages-MaixinZ/">cal-cs184-student.github.io/hw-webpages-MaixinZ/</a>
+		<br>
+		Link to GitHub repository: <a href="https://github.com/cal-cs184-student/hw2-meshedit-maixin77.git">github.com/cal-cs184-student/hw2-meshedit-maixin77.git</a>
 		
 		<figure>
-			<img src="cornell.png" alt="Cornell Boxes with Bunnies" style="width:70%"/>
-			<figcaption>You can add images with captions!</figcaption>
+			<img src="spongebob-waiting.jpg" alt="Cornell Boxes with Bunnies" style="width:50%"/>
+			<figcaption>me waiting for images to render</figcaption>
 		</figure>
 
 		<!--
@@ -45,62 +46,509 @@
 		-->
 
 		<h2>Overview</h2>
-		Give a high-level overview of what you implemented in this homework. Think about what you've built as a whole. Share your thoughts on what interesting things you've learned from completing the homework.
+		In this homework, I implemented a full path tracer that simulates global illumination using Monte Carlo integration. Starting from basic ray generation, I built a rendering pipeline that traces rays from the camera into the scene, computes intersections with geometry, and estimates radiance using both direct and indirect lighting. I implemented diffuse BSDF sampling, recursive multi-bounce light transport, and Russian roulette for unbiased termination of light paths. Additionally, I incorporated adaptive sampling to dynamically allocate more samples to noisy pixels while stopping early for pixels that have converged.
+		One interesting learning was the process of light transport. For example, surfaces that receive no direct light, such as the ceiling, can still become brightly illuminated due to indirect light bouncing from other surfaces. 
+		This assignment helps me build a solid understanding of ray-tracing and illumination. 
 
 		<h2>Part 1: Ray Generation and Scene Intersection</h2>
-		Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.
+		<p> 
+			<b> Implementation of the ray generation pipeline: </b> To generate camera rays from image coordinates, I did the following three step in camera/generate_ray() function:
+			<ol>
+				<li> Calculate the coordinates in the virtual camera sensor using linear interpolatoin -- \( x\_camera = - tan(hFov\_radian / 2) + x * (2 * tan(hFov\_radian / 2)) \), similar for y_camera. </li>
+				<li> After I got the camera coordinates, I obtained the direction of the ray in camera space from the origin simply as (x_camera, y_camera, z_camera), where z_camera is -1 in this case. </li>
+				<li> Based on the direction of ray in camera space, I calculated the direction of the ray in world space by transforming the direction vector by the c2w matrix. The ray origin in the world space is the camera's position</li>
+			</ol>
+			Then, in the <b>pathtracer/raytrace_pixel()</b> function, I used Monte Carlo Algorithm to get the radiance value for each pixel by taking ns_aa samples inside the pixel. 
+			I used gridSampler->get_sample() helper function to generate a uniformly random Vector2D sample with values from 0 to 1. Then, I added this generated sample to
+			the original (x, y) position to get the position of the sample that's inside the pixel. I found the ray at the coordinates using the <code> generate_ray()</code> function
+			that I implemented before, and then calculated the radiance in <code>est_radiance_global_illumination()</code>. Finally, I took the average radiance 
+			across all samples to get the return radiance value of the given pixel. 
+		</p>
 
-		<p>Here is an example 2x2 gridlike structure using an HTML table. Each <b>tr</b> is a row and each <b>td</b> is a column in that row. You might find this useful for framing and showing your result images in an organized fashion.</p>
 		<div style="display: flex; flex-direction: column; align-items: center;">
 			<table style="width: 100%; text-align: center; border-collapse: collapse;">
 			  <tr>
 				<td style="text-align: center;">
-				  <img src="cornell.png" width="400px"/>
-				  <figcaption>Caption goes here.</figcaption>
+				  <img src="part1/CBempty.png" width="400px"/>
+				  <figcaption>CBempty image for testing</figcaption>
 				</td>
 				<td style="text-align: center;">
-				  <img src="cornell.png" width="400px"/>
-				  <figcaption>Caption goes here.</figcaption>
+				  <img src="part1/banana.png" width="400px"/>
+				  <figcaption>Banana image.</figcaption>
 				</td>
 			  </tr>
+			</table>
+		</div>
+
+		<p>
+			<b>Implementation of ray - primitive intersection:</b> Generally speaking, for the intersection with triangle and sphere, I used the formula shared during the lecture on how to
+			calculate the intersection time. For ray-triangle intersection, the function is \[ dot(p^1 - ray.o, plane\_normal)\ /\ dot (ray.d, plane\_normal) \], and for ray-sphere
+			intersection, the function is \[ (-b +- sqrt(b^2 - 4ac)) / 2a \] where a = \( dot(r.d, r.d) \), b = \( 2.0 * dot(r.o - o, r.d) \), and c = \(dot(r.o-o, r.o-o) -  r2 \). After I found the time, I checked whether it's valid or not. If it is valid, I concluded that there was an intersection and set up the intersection structure.
+		</p>
+
+		<p> 
+			<b> Triangle intersection algorithm:</b> I implemented ray triangle intersection in two steps: 
+			<ol>
+				<li>
+					I computed two edge vectors from the triangle vertices and used their cross product to get the plane normal. Then I solved for the parameter t of the ray equation to find where the ray hits the plane
+					using the formula from lecture \( dot(p^1 - ray.o, plane\_normal)\ /\ dot (ray.d, plane\_normal) \). If t is valid (>= 0 and < infinity), the ray intersects with the plane.
+					Thus, I computed the hit point by plugging t back into the ray equation.
+				</li>
+				<li>
+					To determine whether this point lies inside the triangle, I used edge tests. 
+					For each edge, I computed the cross product between the edge vector and the vector from the edge start to the hit point. If all these cross products have the same orientation relative to the triangle normal, then the intersection point is inside the triangle. 
+					In that case I updated the ray.max_t to t so that farther intersections can be ignored and returned true. Otherwise I returned false.
+				</li>
+			</ol>
+			I did similar things for the intersect() function with some additional steps that sets the intersection structure as instructed.  
+
+		</p>
+
+		<div style="display: flex; flex-direction: column; align-items: center;">
+			<table style="width: 100%; text-align: center; border-collapse: collapse;">
 			  <tr>
 				<td style="text-align: center;">
-				  <img src="cornell.png" width="400px"/>
-				  <figcaption>Caption goes here.</figcaption>
+				  <img src="part1/tri.png" width="400px"/>
+				  <figcaption>Ray-triangle intersection implemented </figcaption>
 				</td>
 				<td style="text-align: center;">
-				  <img src="cornell.png" width="400px"/>
-				  <figcaption>Caption goes here.</figcaption>
+				  <img src="part1/sph.png" width="400px"/>
+				  <figcaption>Ray-sphere intersection implemented </figcaption>
 				</td>
 			  </tr>
 			</table>
 		</div>
 		
 		<h2>Part 2: Bounding Volume Hierarchy</h2>
-		Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.
+		<p>
+			<b> BVH construction algorithm: </b> I constructed the BVH recursively. For each call to construct bvh, I first looped through all primitives in the current range and expanded a bounding box so that it enclosed every primitive in that range. I then created a BVH node with this bounding box. 
+			If the number of primitives in the range was less than or equal to max_leaf_size, I made the node a leaf by storing the start and end iterators and returned it directly. Otherwise, I split the primitives into two smaller groups and recursively built the left and right child nodes.
+			To decide how to split, I computed a second bounding box over the centroids of the primitive bounding boxes rather than over the full primitive boxes. I used this centroid bounding box to measure how spread out the primitives were along each coordinate axis. 
+			I then chose the axis with the largest extent to be splitted in the mid point. 
+			<br><br>
+			The heuristic behind my splitting algorithm is that a greater axis spread indicates that the bounding boxes are more likely to be separated, which would make BVH more efficient by reducing overlap of child nodes. Also, picking the mid value will make the primitives
+			more equally spreaded. The figure below demonstrates how BVH splits the primitives. 
+			<div style="display: flex; flex-direction: column; align-items: center;">
+				<table style="width: 100%; text-align: center; border-collapse: collapse;">
+				  <tr>
+					<td style="text-align: center;">
+					  <img src="part2/construction.png" width="400px"/>
+					  <figcaption> One split of BVH</figcaption>
+					</td>
+				  </tr>
+				</table>
+			</div>
+		</p>
+
+		<p> 
+			Below are the few images rendered with BVH acceleration
+			<div style="display: flex; flex-direction: column; align-items: center;">
+				<table style="width: 100%; text-align: center; border-collapse: collapse;">
+				  <tr>
+					<td style="text-align: center;">
+					  <img src="part2/building_screenshot_4-1_18-2-26.png" width="400px"/>
+					  <figcaption> Building </figcaption>
+					</td>
+					<td style="text-align: center;">
+					  <img src="part2/maxplanck_screenshot_4-1_18-16-20.png" width="400px"/>
+					  <figcaption> Maxplanck </figcaption>
+					</td>
+				  </tr>
+				  <tr>
+					<td style="text-align: center;">
+					  <img src="part2/beast_screenshot_4-1_18-3-17.png" width="400px"/>
+					  <figcaption> Beast </figcaption>
+					</td>
+					<td style="text-align: center;">
+					  <img src="part2/peter_screenshot_4-1_18-1-39.png" width="400px"/>
+					  <figcaption> Peter </figcaption>
+					</td>
+				  </tr>
+				</table>
+			</div>
+		</p>
+
+		<p> 
+			<b>Comparison of rendering time: </b>BVH acceleration significantly reduces the rendering time. For example, in one trial, the average number of rays per second for the "maxplank" without BVH was 0.0069 million, 
+			while that with BVH acceleration had an average of 3.1766 million rays per second. Thus, the rendering time decreased from about 80 seconds to around 0.2 seconds. BVH achieved this reduction 
+			in rendering time by reducing the number of intersection tests per ray as it would not check the primitive if the bounding box that contains the primitive doesn't have intersection with the ray. Moreover, this performance gain becomes more pronounced as scene complexity grows.
 
 		<h2>Part 3: Direct Illumination</h2>
-		Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.
+		<p> 
+			<b> Implementation of direct lighting functions</b>
+			<ol>
+				<li>
+					<b> Direct lighting with uniform hemisphere sampling: </b> This function samples light uniformly in all directions in the hemisphere. I estimated how much light
+					arrived at the intersection point (hit_p) by integrating over all light arriving in a hemisphere around that point. I approximated the integral using the Monte Carlo Estimator with the equation provided
+					in lecture \[ \frac{1}{N}\sum_{j=1}^{N}\frac{f_r\!\left(p,\omega_j \to \omega_r\right)\,L_i\!\left(p,\omega_j\right)\cos\theta_j}{p(\omega_j)} \] To achieve this, I used a for loop with num_samples iterations.
+					In each loop, I randomly sampled a w_in (direction of incoming light in local space), and converted it to the w_in_world (direction of incoming light in world space). With a hit_p and w_in_world, I created the
+					ray to test whether it would hit a lighting source. Due to floating point precision, I set ray.min_t to EPS_F to prevent the ray from hitting the same triangle that it came from. 
+					Then, I traced the ray from the hit point in the sampled direction and found out its first intersection by calling <code> bvh -> intersect (ray, &light_isect) </code> so that the information of the first intersection is 
+					stored in light_isect structure. I checked the emission of the first intersecting object with <code> L_in = light_isect.bdsf->get_emission()</code>. If the value of L_in is greater than 0, it indicates that 
+					the object is a light source -- I would add its contribution to the total L_out (outgoing radiance) using the Monte Carlo Approximation mentioned before. 
+				</li>
+				<br>
+				<li>
+					<b> Direct lighting with importance sampling lights: </b> Instead of randomly sampling in the whole hemisphere, I wanted to account for point light and reduce noise level by only focusing on the light sources in the scene. 
+					To achieve this, I used a for loop to iterate over all light sources in the scene and determined the number of samples needed based on whether the light source is a point light or not. If it is a point light, only one sample is needed, else, 
+					I used ns_area_light samples. For each light source, I initialized a light_sum to store the total contribution of this light source across all samples. 
+					For each sample, I generated one incoming radiance from the light by calling <code>light->sample(hit_p, &w_in_world, &dist_to_light, &pdf)</code>. Then, I converted the incoming direction (w_in_world) to w_in in local frame,
+					and checked whether cos_theta(w_in) <= 0. If cos_theta(w_in) <= 0, it means the light is behind the surface and I would no longer consider it when calculating outgoing radiance. Then, I created the ray to test whether there's anything blocking between the 
+					hit point and the light source. To do so, I set ray.max_t to dist_to_light - EPS_F. Finally, I checked whether there's intersection between the hit point along the light direction that's in front of the light source, if there isn't, I would add 
+					the contribution to the total L_out using the same Monte Carlo Approximation algorithm. 
+				</li>
+			</ol>
+		</p>
+		<br>
+		<p> 
+			<b> Comparison of uniform hemisphere sampling and lighting sampling: </b> The figures in the first row below are images rendered with uniform sampling, and the figures in the second row are images rendered with light sampling. The captions of the figures
+			document -t: number of threads, -s: number of camera rays per pixel, -l: number of samples per area light, -m: maximum ray depth, -H: whether it's uniform hemisphere sampling. Comparing the rendered images, uniform hemisphere sampling produces significantly noisier results compared to lighting (importance) sampling, 
+			especially in regions with soft shadows. This is because hemisphere sampling distributes rays uniformly over all directions, causing most samples to contribute little or no light since they do not intersect light sources, leading to high variance and slow convergence. In contrast, lighting sampling directly targets the light sources, 
+			ensuring that most samples contribute meaningful illumination. As a result, lighting sampling generates much smoother shadows and cleaner images with far fewer samples, and it is also capable of correctly handling point lights, which hemisphere sampling almost never captures due to their infinitesimal size.
+			<div style="display: flex; flex-direction: column; align-items: center;">
+				<table style="width: 100%; text-align: center; border-collapse: collapse;">
+				  <tr>
+					<td style="text-align: center;">
+					  <img src="part3/CBbunny_H_16_8.png" width="400px"/>
+					  <figcaption> -t 8 -s 16 -l 8 -m 6 -H </figcaption>
+					</td>
+					<td style="text-align: center;">
+					  <img src="part3/CBbunny_H_64_32.png" width="400px"/>
+					  <figcaption> -t 8 -s 64 -l 32 -m 6 -H </figcaption>
+					</td>
+				  </tr>
+				  <tr>
+					<td style="text-align: center;">
+					  <img src="part3/CBbunny_16_8.png" width="400px"/>
+					  <figcaption> -t 8 -s 16 -l 8 -m 6</figcaption>
+					</td>
+					<td style="text-align: center;">
+					  <img src="part3/CBbunny_64_32.png" width="400px"/>
+					  <figcaption> -t 8 -s 64 -l 32 -m 6 </figcaption>
+					</td>
+				  </tr>
+				</table>
+			</div>
+		</p>
+		<br>
+		<p>
+			<b> Noise levels in soft shadows when rendering with different number of light rays: </b> Below are figures rendered with different number of light rays (-l) and with 1 sample per pixel (-s 1) under light sampling. 
+			A soft shadow is a shadow with gradual and blurry edges. In Monte Carlo integration, each light ray is a sample (ns_area_light). Thus, if we have fewer light rays / samples, each random sample ray has
+			a larger influence on the final average, so the estimate fluctuates more, producing visible noise -- For example, a pixel may have all of its sampled rays blocked even though the true lighting at that point is only partially occluded, leading to an underestimate of the incoming light. As the number of light rays increases, 
+			the average over these samples becomes more stable and better approximate the true lighting. However, with larger number of light rays, the rendering time also increases significantly.  
 
+			<div style="display: flex; flex-direction: column; align-items: center;">
+				<table style="width: 100%; text-align: center; border-collapse: collapse;">
+				  <tr>
+					<td style="text-align: center;">
+					  <img src="part3/bunny_1_1.png" width="400px"/>
+					  <figcaption> l = 1</figcaption>
+					</td>
+					<td style="text-align: center;">
+					  <img src="part3/bunny_1_4.png" width="400px"/>
+					  <figcaption> l = 4</figcaption>
+					</td>
+				  </tr>
+				  <tr>
+					<td style="text-align: center;">
+					  <img src="part3/bunny_1_16.png" width="400px"/>
+					  <figcaption> l = 16</figcaption>
+					</td>
+					<td style="text-align: center;">
+					  <img src="part3/bunny_1_64.png" width="400px"/>
+					  <figcaption> l = 64 </figcaption>
+					</td>
+				  </tr>
+				</table>
+			</div>
+		</p>
 		<h2>Part 4: Global Illumination</h2>
-		Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.
+		<p> 
+			<b> Implementation of indirect lighting: </b> For indirect lighting, I implemented <code>at_least_one_bounce_radiance()</code> as a recursive function that estimates radiance 
+			arriving at a surface from one or more additional bounces. I initialized the ray depth to max_ray_depth. 
+			<ol>
+				<li> Base case: if <code>ray.depth == 0</code>, I return L_out, which is initialized to (0, 0, 0), immediately because no reflected light is added and only the zero_bounce emission is visible.</li>
+				<li> Recursive step: if <code>isAccumBounces == true</code>, I add <code> one_bounce_radiance(r, isect)</code> at every recursion so that the result contains all lighting contributions from bounce 1 up to the maximum depth.
+					Else if <code>isAccumBounces == false</code>, I only add <code>one_bounce_radiance(r, isect)</code> when r.depth == 1, which corresponds to the final allowed bounce and makes the renderer isolate only the light contribution from 
+					the selected bounce depth instead of summing all previous bounces.
+				</li>
+			</ol>
+			To estimate higher-order indirect lighting, I sample a new incoming direction from the surface BSDF by calling the <code>sample_f (w_out, &w_in, &pdf)</code> function, which writes to w_in and pdf. 
+			I then detect invalid samples by checking whether pdf <= 0 or cos_theta(w_in) <= 0 (behind the surface), if these are the cases, I disregard the sample. Because the sampled direction from BSDF is in local space, I convert it 
+			back to world space and then spawn a new ray from the hit point in that direction called <code>next_ray</code> with depth decremented by 1 from the current ray. If the next_ray intersects another object, I recursively call <code>at_least_one_bounce_radiance(next_ray, next_isect)</code>
+			to estimate the radiance arriving at the next surface from deeper bounces. I store this result in L_out_next. Finally, I combine this recursive estimate differently depending on whether we want to accumulate bounces. 
+			In the accumulated mode, I add the L_out_next to L_out with the Monte Carlo Approximation in each recursive call (L_out += \((f * L\_out\_next * cos\_theta(w\_in))\ /\ pdf \)) so tha final result contains all bounce contributions. In the non-accumulated mode, I use L_out = 
+			\((f * L\_out\_next * cos\_theta(w\_in))\ /\ pdf \) so that earlier-bounce contributions are not preserved, allowing the renderer to visualize only the max_depth bounce of light. 
+			<br><br>
+			Finally, in <code>est_radiance_global_illumination(const Ray &r)</code>, When <code>isAccumBounces</code> is true, the renderer sums <code>zero_bounce_radiance</code> and <code>at_least_one_bounce_radiance</code>. When <code>isAccumBounces</code> is false, I check the max_ray_depth, 
+			if max_ray_depth is 0, I only return <code>zero_bounce_radiance</code>, else, I only return <code>at_least_one_bounce_radiance</code>. 
+		</p>
+		<p> Here are some images rendered with global illumination with 1024 samples per pixel and default max_ray_depth (m = 1). </p>
+		<div style="display: flex; flex-direction: column; align-items: center;">
+			<table style="width: 100%; text-align: center; border-collapse: collapse;">
+			  <tr>
+				<td style="text-align: center;">
+				  <img src="part4/bench_screenshot_4-2_1-15-22.png" width="400px"/>
+				  <figcaption> Bench </figcaption>
+				</td>
+				<td style="text-align: center;">
+				  <img src="part4/dragon.png" width="400px"/>
+				  <figcaption> Dragon </figcaption>
+				</td>
+			  </tr>
+			  <tr>
+				<td style="text-align: center;">
+				  <img src="part4/blob.png" width="400px"/>
+				  <figcaption> Blob </figcaption>
+				</td>
+				<td style="text-align: center;">
+				  <img src="part4/wall-e_screenshot_4-2_1-18-27.png" width="400px"/>
+				  <figcaption> Wall-e Robot </figcaption>
+				</td>
+			  </tr>
+			</table>
+		</div>
+		<br>
+		<p>
+			<b>Difference between only direct illumination and only indirect illumination: </b> The left image below is rendered with direct illumination only (only the zero bounce and first bounce), and the right 
+			image is rendered with indirect illumination only (second or higher-order bounces). The left iamge is very clean and smooth, and the right image is more noisy because indirect lighting
+			creates higher variance. Moreover, comparing the shadow, the left image has sharp shadows under the spheres, while the right image's shadows are much softer and lighter. This is because after the 
+			light bounces, the fills in the shadow regions fade. In general, indirect illumination gives a softer view via multiple bounces. 
+			<div style="display: flex; flex-direction: column; align-items: center;">
+				<table style="width: 100%; text-align: center; border-collapse: collapse;">
+				  <tr>
+					<td style="text-align: center;">
+					  <img src="part4/direct_only.png" width="400px"/>
+					  <figcaption> Direct Illumination Only </figcaption>
+					</td>
+					<td style="text-align: center;">
+					  <img src="part4/indirect_only.png" width="400px"/>
+					  <figcaption> Indirect Illumination Only </figcaption>
+					</td>
+				  </tr>
+				</table>
+			</div>
+		</p>
+		<br>
+		<p> 
+			<b> Rendered Image with <i>mth</i> bounce of light without accumulate bounce</b> Below are images rendered with only the bounce of light at ray depth <code>m</code> using 1024 samples per pixel. 
+			In the first-bounce image (m = 1), the ceiling appears completely black because it does not receive any direct illumination from the light source. However, in the second-bounce image (m = 2), 
+			the ceiling becomes illuminated due to indirect lighting: light first reflects off other surfaces such as the floor, walls, and the bunny, and then reaches the ceiling. The light source appears completely black in both images 
+			because zero-bounce emission is excluded. Compared to the second bounce, the third bounce image appears dimmer and the light seems more evenly spread out across the scene instead of lighting up the bunny. 
+			As the ray depth increases, the lighting contributes more to smooth transitions and approximates real-world light reflection. 
 
+			<div style="display: flex; flex-direction: column; align-items: center;">
+				<table style="width: 100%; text-align: center; border-collapse: collapse;">
+				  <tr>
+					<td style="text-align: center;">
+					  <img src="part4/f0.png" width="300px"/>
+					  <figcaption> m = 0 w/o accumulate bounce </figcaption>
+					</td>
+					<td style="text-align: center;">
+					  <img src="part4/f1.png" width="300px"/>
+					  <figcaption> m = 1 w/o accumulate bounce</figcaption>
+					</td>
+					<td style="text-align: center;">
+						<img src="part4/f2.png" width="300px"/>
+						<figcaption> m = 2 w/o accumulate bounce</figcaption>
+					</td>
+				  </tr>
+				  <tr>
+					<td style="text-align: center;">
+					  <img src="part4/f3.png" width="300px"/>
+					  <figcaption> m = 3 w/o accumulate bounce</figcaption>
+					</td>
+					<td style="text-align: center;">
+					  <img src="part4/f4.png" width="300px"/>
+					  <figcaption> m = 4 w/o accumulate bounce</figcaption>
+					</td>
+					<td style="text-align: center;">
+						<img src="part4/f5.png" width="300px"/>
+						<figcaption> m = 5 w/o accumulate bounce</figcaption>
+					</td>
+				  </tr>
+				</table>
+			</div>
+		</p>
+		<br>
+		<p> 
+			<b> Rendered images with accumulated bounces </b>: Below are images rendered with accumulated bounces from 0 to 5 ray depth. Compare these images to the previous images without accumulated bounces, 
+			these images look brighter and more assemble real-world lighting as they represent full lighting solution instead of partial contribution of each bounce of light. The rendered image with accumulated bounces of light give 
+			us a more realistic global illumination effect (with both direct and indirect lighting). However, in this bunny image, the global illumination difference becomes negligible after accumulating 2 bounces of light, this makes sense because from images 
+			rendered in the previous part, we can see that higher order bounce of light contribute lower and lower to the total global illumination. 
+			<div style="display: flex; flex-direction: column; align-items: center;">
+				<table style="width: 100%; text-align: center; border-collapse: collapse;">
+				  <tr>
+					<td style="text-align: center;">
+					  <img src="part4/t0.png" width="300px"/>
+					  <figcaption> m = 0 with accumulate bounce</figcaption>
+					</td>
+					<td style="text-align: center;">
+					  <img src="part4/t1.png" width="300px"/>
+					  <figcaption> m = 1 with accumulate bounce</figcaption>
+					</td>
+					<td style="text-align: center;">
+						<img src="part4/t2.png" width="300px"/>
+						<figcaption> m = 2 with accumulate bounce</figcaption>
+					</td>
+				  </tr>
+				  <tr>
+					<td style="text-align: center;">
+					  <img src="part4/t3.png" width="300px"/>
+					  <figcaption> m = 3 with accumulate bounce</figcaption>
+					</td>
+					<td style="text-align: center;">
+					  <img src="part4/t4.png" width="300px"/>
+					  <figcaption> m = 4 with accumulate bounce</figcaption>
+					</td>
+					<td style="text-align: center;">
+						<img src="part4/t5.png" width="300px"/>
+						<figcaption> m = 5 with accumulate bounce</figcaption>
+					</td>
+				  </tr>
+				</table>
+			</div>
+		</p>
+		<br>
+		<p> 
+			<b>Russian Roulette</b>: it provides us an unbiased method of random termination. In this project, I picked the termination probability to be 0.4. Below are images rendered with Russian
+			Roulette added with different may_ray_depth and 1024 samples per pixel. Instead of deterministically cutting off all paths at a fixed depth, each path is allowed to continue with some probability, 
+			potentially allowing infinite max ray depth. 
+			<div style="display: flex; flex-direction: column; align-items: center;">
+				<table style="width: 100%; text-align: center; border-collapse: collapse;">
+				  <tr>
+					<td style="text-align: center;">
+					  <img src="part4/r0.png" width="300px"/>
+					  <figcaption> m = 0 </figcaption>
+					</td>
+					<td style="text-align: center;">
+					  <img src="part4/r1.png" width="300px"/>
+					  <figcaption> m = 1 </figcaption>
+					</td>
+					<td style="text-align: center;">
+						<img src="part4/r2.png" width="300px"/>
+						<figcaption> m = 2</figcaption>
+					</td>
+				  </tr>
+				  <tr>
+					<td style="text-align: center;">
+					  <img src="part4/r3.png" width="300px"/>
+					  <figcaption> m = 3</figcaption>
+					</td>
+					<td style="text-align: center;">
+					  <img src="part4/r4.png" width="300px"/>
+					  <figcaption> m = 4</figcaption>
+					</td>
+					<td style="text-align: center;">
+						<img src="part4/r100.png" width="300px"/>
+						<figcaption> m = 100</figcaption>
+					</td>
+				  </tr>
+				</table>
+			</div>
+		</p>
+		<br>
+		<p> 
+			<b>Compare rendered views with various sample-per-pixel rates</b>: In this part, I changed the sample-per-pixel rate from 1 to 1024, with 4 light rays and default max ray depth (1)
+			in the sphere scene. Comparing these images, as the number of samples per pixel increases from 1 to 1024, the rendered image becomes progressively less noisy and more visually stable. 
+			At very low sample counts such as 1, 2, and 4 spp, Monte Carlo variance is high, producing strong grain and unstable shading. By 8 and 16 spp, the overall lighting becomes clearer, though noticeable noise remains in soft shadows and indirect illumination. 
+			At 64 spp, the image appears much smoother, and at 1024 spp, the render is close to convergence, with significantly cleaner global illumination and shadow detail. 
+			<div style="display: flex; flex-direction: column; align-items: center;">
+				<table style="width: 100%; text-align: center; border-collapse: collapse;">
+				  <tr>
+					<td style="text-align: center;">
+					  <img src="part4/s1.png" width="300px"/>
+					  <figcaption> s = 1 </figcaption>
+					</td>
+					<td style="text-align: center;">
+					  <img src="part4/s2.png" width="300px"/>
+					  <figcaption> s = 2 </figcaption>
+					</td>
+					<td style="text-align: center;">
+						<img src="part4/s4.png" width="300px"/>
+						<figcaption> s = 4</figcaption>
+					</td>
+				  </tr>
+				  <tr>
+					<td style="text-align: center;">
+					  <img src="part4/s8.png" width="300px"/>
+					  <figcaption> s = 8</figcaption>
+					</td>
+					<td style="text-align: center;">
+					  <img src="part4/s16.png" width="300px"/>
+					  <figcaption> s = 16</figcaption>
+					</td>
+					<td style="text-align: center;">
+						<img src="part4/s64.png" width="300px"/>
+						<figcaption> s = 64</figcaption>
+					</td>
+				  </tr>
+				  <tr>
+					<td style="text-align: center;">
+					  <img src="part4/s1024.png" width="300px"/>
+					  <figcaption> s = 1024</figcaption>
+					</td>
+				  </tr>
+				</table>
+			</div>
+
+		</p>
 		<h2>Part 5: Adaptive Sampling</h2>
-		Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.
+		<p>
+			<b>Implementation: </b> For each pixel, I trace multiple camera rays by sampling random subpixel locations and accumulating their radiance contributions. In addition to summing radiance, I maintain two running statistics: 
+			<ol>
+				<li>s1: sum of sample illuminance </li>
+				<li>s2: sum of squared sample illuminance</li>
+			</ol>
+			These two variables are used in the calculation of mean and variance. Every <code>SamplesPerBatch</code> sample (size = i), I estimate the pixel's convergence by computing the mean  and standard deviation 
+			and then forming a 95% confidence interval I = 1.96 * mean / varaince, where mean = \( s1\ /\ i\) and variance = \((s2 - (s1 * s1)\ /\ i)\ /\ (i - 1)\). 
+			If I <= MaxTolerance(0.05) * mean, I assume that the pixel has converged and stop tracing more rays for this pixel. 
+			If not, I would continue the tracing-and-detecting loop until reaching the maximum sample size.
+		</p>
+		<p> 
+			Below are two images rendered with adaptive sampling along with their sample rate image, which shows the sample rates of each parts. Red represents higher sample rate, while blue represents lower smaple rate.
+			<div style="display: flex; flex-direction: column; align-items: center;">
+				<table style="width: 100%; text-align: center; border-collapse: collapse;">
+				  <tr>
+					<td style="text-align: center;">
+					  <img src="part5/bunny.png" width="400px"/>
+					  <figcaption> Bunny </figcaption>
+					</td>
+					<td style="text-align: center;">
+					  <img src="part5/bunny_rate.png" width="400px"/>
+					  <figcaption> Bunny sample rates </figcaption>
+					</td>
+				  </tr>
+				  <tr>
+					<td style="text-align: center;">
+					  <img src="part5/lucy.png" width="400px"/>
+					  <figcaption> Spheres_lambertian </figcaption>
+					</td>
+					<td style="text-align: center;">
+					  <img src="part5/lucy_rate.png" width="400px"/>
+					  <figcaption> Spheres sample rates </figcaption>
+					</td>
+				  </tr>
+				</table>
+			</div>
+		</p>
 
-		<h2>(Optional) Part 6: Extra Credit Opportunities</h2>
-		Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.
-		
-		<h2>Additional Notes (please remove)</h2>
-		<ul>
-			<li>You can also add code if you'd like as so: <code>code code code</code></li>
-			<li>If you'd like to add math equations, 
-				<ul>
-					<li>You can write inline equations like so: \( a^2 + b^2 = c^2 \)</li>
-					<li>You can write display equations like so: \[ a^2 + b^2 = c^2 \]</li>
-				</ul>
-			</li>
-		</ul>
+		<h2>Part 6: Extra Credit Opportunities</h2>
+		<p>
+			<b>Render motion blur effects: </b> This part is implemented mostly with Cursor. Vertex in the halfedge mesh now has motionPositionEnd, HalfedgeMesh::build takes an optional fourth array, and the Collada path loads a <source> whose id contains motion_positions_end (same vertex count as positions) into PolymeshInfo::vertices_shutter_close, which GLScene::Mesh transforms and passes into build. 
+			The pathtracer SceneObjects::Mesh keeps positions plus positions_end (or nullptr if nothing moves), with a destructor so arrays are freed. Triangle no longer bakes vertices at BVH build time—it keeps the mesh and three indices, lerps positions with Ray::time in ([0,1]), and uses a BVH bbox that unions the triangle at (t=0) and (t=1) so culling stays conservative.
+			Ray gained a time field - pathtracer sets it per pixel sample with a deterministic hash, copies it onto shadow and indirect rays (same instant on a path), and forces time = 0 for autofocus. Below is an image of maxplanck generated with motion blur effect:
+			<div style="display: flex; flex-direction: column; align-items: center;">
+				<table style="width: 100%; text-align: center; border-collapse: collapse;">
+				  <tr>
+					<td style="text-align: center;">
+					  <img src="part5/maxplanck_motion_screenshot_4-2_15-14-53.png" width="400px"/>
+					  <figcaption> Maxplanck Motion </figcaption>
+					</td>
+				  </tr>
+				</table>
+			</div>
+		</p>
 		</div>
 	</body>
 </html>
