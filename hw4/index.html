@@ -170,16 +170,16 @@
 			</div>
 			<br>
 			<li><b>Damping:</b> damping controls how much previous motion carries forward after loss of energy. A low damping indicates that more motion persists and the cloth will keep oscillating. 
-				With extreme low damping (damping = 0), the cloth never rests in a given amount of time after the simulation starts because of momentum with visible swinging and bouncing. With extreme high damping (damping = 100), motion 
+				With extreme low damping (damping = 0%), the cloth never rests in a given amount of time after the simulation starts because of momentum with visible swinging and bouncing. With extreme high damping (damping = 1%), motion 
 				is quickly reduced after simulation starts - oscillations are barely noticeable and cloth moves very slowly and smoothly. Changing the damping value doesn't change the final rest stage, instead, it only changes how the 
-				cloth gets to the final rest stage. The default damping value (0.2) simulates the falling of cloth most realistically. 
+				cloth gets to the final rest stage. The default damping value (0.2%) simulates the falling of cloth most realistically. 
 			</li>
 			<br>
 			<div style="display: flex; flex-direction: column; align-items: center;">
 				<table style="width: 100%; text-align: center; border-collapse: collapse;">
 					<td style="text-align: center;">
 					  <img src="task2/default_damp.png" width="300px"/>
-					  <figcaption>Cloth simulation with default 20% damping</figcaption>
+					  <figcaption>Cloth simulation with default 0.2% damping</figcaption>
 					</td>
 					<td style="text-align: center;">
 					  <img src="task2/damp = 0.png" width="300px"/>
@@ -187,7 +187,7 @@
 					</td>
 					<td style="text-align: center;">
 						<img src="task2/damp = 100.png" width="300px"/>
-						<figcaption>Cloth simulation with 100% damping</figcaption>
+						<figcaption>Cloth simulation with 1% damping</figcaption>
 					</td>
 				</table>
 			</div>
@@ -315,7 +315,7 @@
 		The GPU then performs rasterization, which determines which fragments lie inside the shape. For each fragment, the fragment shader determines the color and other lighting /shading properties. The results of fragment shader (out_color) are stored in the framebuffer, which stores the color values of all pixels on the screen. Together, the vertex shader provides the geometric transformation, and the fragment shader 
 		performs detailed per-fragment calculations that determine how light interacts with the surface. This collaboration allows GPU to produce various lighting and material effects. 
 		<br><br>
-		<b>Blinn-Phong Shading: </b> Blinn-Phong shading combines three components: ambient light, diffuse light, and specular light, given by the formula \[
+		<b>Blinn-Phong Shading: </b> Blinn-Phong shading simulates the interaction of light with surfaces and combines three components: ambient light, diffuse light, and specular light, given by the formula \[
 		L = k_a I_a + k_d \left(\frac{I}{r^2}\right)\max(0, \mathbf{n} \cdot \mathbf{l}) + k_s \left(\frac{I}{r^2}\right)\max(0, \mathbf{n} \cdot \mathbf{h})^p
 		\]
 
@@ -386,7 +386,7 @@
 		<br><br>
 		To study the effect of mesh resolution on bump and displacement mapping, I varied the sphere mesh coarseness using the parameters -o 16 -a 16 (low resolution), and -o 128 -a 128 (high resolution). -o controls the vertical resolution and -a controls the horizontal resolution.
 		The spheres with bump mapping look almost identical with two resolutions because bump mapping doesn't modify the underlying geometry. Instead, it simulates surface detail by altering the normals used in lighting calculations on a per-pixel basis. 
-		However, for displacement mapping, the difference is very noticeable. At low resolution, the sphere looks very coarse and the surface appears chunky. THe silhouette also looks slightly jagged. While at high resolution, the silhouette looks relatively smooth and surface appears more continuous and natural.
+		However, for displacement mapping, the difference is very noticeable. At low resolution, the sphere looks very coarse and the surface appears chunky. The silhouette also looks slightly jagged. While at high resolution, the silhouette looks relatively smooth and surface appears more continuous and natural.
 		Displacement mapping relies on vertex density because it modifies the positions of the vertices to represent surface details. With low vertex density, large triangles span between displaced vertices, resulting in a blocky and less accurate representation of the surface. 
 		<div style="display: flex; flex-direction: column; align-items: center;">
 			<table style="width: 100%; text-align: center; border-collapse: collapse;">
@@ -487,7 +487,6 @@
 				</tr>
 			</table>
 		</div>
-
 		</div>
 	</body>
 </html>
